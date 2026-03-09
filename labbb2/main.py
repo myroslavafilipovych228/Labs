@@ -1,74 +1,100 @@
+import csv
 import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
 
+# -----------------------------
+# зчитування даних з CSV
+# -----------------------------
+def read_data(filename):
+    x = []
+    y = []
 
-# --- 1. ТАБУЛЯЦІЯ ТА ПІДГОТОВКА ДАНИХ  ---
-def prepare_data():
-    # Експериментальні дані Варіанта 3 [cite: 233, 234]
-    data = {
-        'n': [10000, 20000, 40000, 80000, 160000],
-        't': [8, 20, 55, 150, 420]
-    }
-    df = pd.DataFrame(data)
-    df.to_csv('training_data.csv', index=False)
-    return df['n'].values, df['t'].values
+    with open(filename, 'r') as file:
+        reader = csv.DictReader(file)
+        for row in reader:
+            x.append(float(row['RPS']))
+            y.append(float(row['CPU']))
 
+    return np.array(x), np.array(y)
 
-# --- 2. ОБЧИСЛЕННЯ РОЗДІЛЕНИХ РІЗНИЦЬ [cite: 156] ---
-def get_divided_diff(x, y):
-    n = len(y)
-    coef = np.zeros([n, n])
-    coef[:, 0] = y
+# -----------------------------
+# таблиця розділених різниць
+# -----------------------------
+def divided_differences(x, y):
+    n = len(x)
+    coef = np.zeros((n, n))
+    coef[:,0] = y
+
     for j in range(1, n):
         for i in range(n - j):
-            coef[i, j] = (coef[i + 1, j - 1] - coef[i, j - 1]) / (x[i + j] - x[i])
-    return coef[0, :]
+            coef[i][j] = (coef[i+1][j-1] - coef[i][j-1]) / (x[i+j] - x[i])
 
+    return coef
 
-# --- 3. ІНТЕРПОЛЯЦІЯ НЬЮТОНА ТА ПОХИБКА [cite: 155, 159] ---
-def newton_interpolation(x_nodes, y_nodes, x_target):
-    coef = get_divided_diff(x_nodes, y_nodes)
-    n = len(x_nodes)
-    val = coef[0]
-    w_val = 1.0
+# -----------------------------
+# поліном Ньютона
+# -----------------------------
+def newton_polynomial(x, coef, value):
+    n = len(x)
+    result = coef[0][0]
 
-    # Функція w_k(x) [cite: 156]
+    product = 1.0
+
     for i in range(1, n):
-        w_val *= (x_target - x_nodes[i - 1])
-        val += coef[i] * w_val
-    return val
+        product *= (value - x[i-1])
+        result += coef[0][i] * product
 
+    return result
 
-# --- 4. ДОСЛІДЖЕННЯ ЕФЕКТУ РУНГЕ ТА КІЛЬКОСТІ ВУЗЛІВ [cite: 162, 234, 245] ---
-def run_research(x_nodes, y_nodes):
-    target_x = 120000
-    print(f"--- Аналіз для Варіанта 3 (n_target = {target_x}) ---")
+# -----------------------------
+# похибка
+# -----------------------------
+def calculate_error(real, approx):
+    return abs(real - approx)
 
-    # Прогноз для цільового значення [cite: 234]
-    res = newton_interpolation(x_nodes, y_nodes, target_x)
-    print(f"Прогноз часу тренування: {res:.2f} сек.")
+# -----------------------------
+# головна програма
+# -----------------------------
+x, y = read_data("data.csv")
 
-    # Побудова графіків для дослідження [cite: 160, 161]
-    x_fine = np.linspace(min(x_nodes), max(x_nodes), 200)
-    y_interp = [newton_interpolation(x_nodes, y_nodes, xi) for xi in x_fine]
+coef = divided_differences(x, y)
 
-    plt.figure(figsize=(12, 7))
-    plt.plot(x_nodes, y_nodes, 'ro', label='Вузли (експеримент)')
-    plt.plot(x_fine, y_interp, 'b-', label='Поліном Ньютона (5 вузлів)')
+# прогноз для 600 RPS
+prediction = newton_polynomial(x, coef, 600)
 
-    # Візуалізація w_n(x) для оцінки похибки [cite: 160]
-    # (Масштабовано для видимості на графіку)
-    plt.fill_between(x_fine, y_interp, alpha=0.1, color='blue')
+print("Прогноз CPU при 600 RPS =", prediction)
 
-    plt.title("Інтерполяція часу тренування та аналіз стабільності")
-    plt.xlabel("Розмір датасету")
-    plt.ylabel("Час (сек)")
-    plt.legend()
-    plt.grid(True)
-    plt.show()
+# -----------------------------
+# побудова графіків
+# -----------------------------
 
+x_graph = np.linspace(min(x), max(x), 100)
+y_graph = []
 
-# Виконання всіх етапів
-x_v3, y_v3 = prepare_data()
-run_research(x_v3, y_v3)
+for val in x_graph:
+    y_graph.append(newton_polynomial(x, coef, val))
+
+# графік CPU(RPS)
+plt.figure()
+plt.scatter(x, y)
+plt.plot(x_graph, y_graph)
+plt.xlabel("RPS")
+plt.ylabel("CPU (%)")
+plt.title("Інтерполяція CPU(RPS) методом Ньютона")
+plt.show()
+
+# -----------------------------
+# графік похибки
+# -----------------------------
+errors = []
+
+for i in range(len(x)):
+    approx = newton_polynomial(x, coef, x[i])
+    errors.append(calculate_error(y[i], approx))
+
+plt.figure()
+plt.plot(x, errors)
+plt.xlabel("RPS")
+plt.ylabel("Error")
+plt.title("Похибка інтерполяції")
+plt.show()
