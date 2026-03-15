@@ -133,8 +133,7 @@ def main():
     print("\nДані для інтерполяції:")
     print("RPS:", x)
     print("CPU:", y)
-
-    # Сортуємо дані за x (якщо потрібно)
+# Сортуємо дані за x (якщо потрібно)
     if len(x) > 1:
         sort_idx = np.argsort(x)
         x = x[sort_idx]

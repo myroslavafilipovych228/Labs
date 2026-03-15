@@ -97,6 +97,12 @@ def cubic_spline(x, y):
     d[0] = d[-1] = 0
 
     M = thomas_algorithm(a, b, c, d)
+
+    print("\nКоефіцієнти c (другі похідні M[i]):")
+    for i, val in enumerate(M):
+        print(f"c[{i}] = {val:.6f}")
+    # ============================================================
+
     return M
 
 M = cubic_spline(distances, elevations)
